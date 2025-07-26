@@ -1,0 +1,13 @@
+.ipynb*
+iac/.terraform
+iac/.terraform.lock.hcl
+iac/terraform.tfstate
+iac/terraform.tfstate.backup
+iac/tfplan
+pinecone/
+Design Document.docx
+main copy.tf
+.streamlit/
+frontend/psychiatric_sop_assistant.py
+datasets/
+ui_design.png
