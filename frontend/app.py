@@ -37,11 +37,12 @@ except Exception as e:
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Psychiatric SOP Assistant 🧠",
+    page_title="Psychiatry Opioid SOPs Assistant 🧠",
     page_icon="📚",
     layout="centered",
     initial_sidebar_state="auto"
 )
+# st.markdown("An AI assistant to provide information from the ASAM Opioid Use Disorder guidelines.")
 
 # --- Custom CSS for styling ---
 st.markdown(
@@ -222,13 +223,27 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Title and Introduction (Fixed at Top) ---
-st.title("🧠 Psychiatric SOP Assistant")
+st.title("Psychiatry Opioid SOPs Assistant")
+# st.markdown("An AI assistant to provide information from the ASAM Opioid Use Disorder guidelines.")
+# st.title("🧠 Psychiatric SOP Assistant")
 st.markdown("---")
 st.write(
     """
-    Welcome, doctor! This assistant helps you quickly find relevant information
-    within Standard Operating Procedures (SOPs) for psychiatric practices.
-    Simply type your question below.
+    Welcome! This assistant is designed to help you quickly navigate and 
+    find information from the ASAM National Practice Guideline for the Treatment 
+    of Opioid Use Disorder.
+    """
+)
+
+st.markdown("---")
+
+# --- 2. Include about three questions for new users. ---
+st.markdown("##### Example Questions:")
+st.info(
+    """
+    * What are the three primary medications for Opioid Use Disorder?
+    * What is the ASAM definition of addiction?
+    * What is the recommended approach for individuals in the criminal justice system with opioid use disorder?
     """
 )
 
@@ -238,7 +253,7 @@ st.write("")
 # Initialize chat history in session state
 if "messages" not in st.session_state:
     st.session_state.messages = []
-    st.session_state.messages.append({"role": "assistant", "content": "Hello! How can I assist you today with SOPs?"})
+    st.session_state.messages.append({"role": "assistant", "content": "Please type your question below!"})
 
 # --- Chat Display Area (Scrollable) ---
 # Create the Streamlit container that will hold the chat messages
@@ -274,36 +289,47 @@ if user_prompt:
     # Process the LLM response immediately after adding user message
     with st.spinner("Searching SOPs..."):
         try:
+            # A prompt template is defined to set the persona and rules for the AI.
+            PROMPT_TEMPLATE = """
+            Human: You are an internal AI system that assists with standard operating procedures (SOPs) for opioid treatment in the field of psychiatry. Your answers must be based exclusively on the provided ASAM National Practice Guideline for the Treatment of Opioid Use Disorder documents.
+            Use the following pieces of information to provide a concise answer to the question enclosed in <question> tags. 
+            If you don't know the answer, just say that you don't know, don't try to make up an answer.
+            <context>
+            $search_results$
+            </context>
+
+            <question>
+            $input_text$
+            </question>
+
+            The response should be specific and use clinical guidance, statistics, or numbers when possible, as found in the guidelines.
+
+            Assistant:"""
+                
             response = bedrock_agent_runtime.retrieve_and_generate(
-                input={
-                    'text': user_prompt
-                },
-                retrieveAndGenerateConfiguration={
-                    'type': 'KNOWLEDGE_BASE',
-                    'knowledgeBaseConfiguration': {
-                        'knowledgeBaseId': BEDROCK_KNOWLEDGE_BASE_ID,
-                        'modelArn': f"arn:aws:bedrock:{AWS_REGION}::foundation-model/meta.llama3-70b-instruct-v1:0"
+                    input={
+                        'text': user_prompt
+                    },
+                    retrieveAndGenerateConfiguration={
+                        'type': 'KNOWLEDGE_BASE',
+                        'knowledgeBaseConfiguration': {
+                            'knowledgeBaseId': BEDROCK_KNOWLEDGE_BASE_ID,
+                            # The modelArn is now part of the prompt configuration
+                            # and the prompt template is specified here.
+                            'retrievalConfiguration': {
+                                'vectorSearchConfiguration': {'numberOfResults': 4}
+                            },
+                            'generationConfiguration': {
+                                'promptTemplate': {
+                                    'textPromptTemplate': PROMPT_TEMPLATE
+                                }
+                            },
+                            'modelArn': f"arn:aws:bedrock:{AWS_REGION}::foundation-model/amazon.nova-micro-v1:0" 
+                        }
                     }
-                }
-            )
-
+                )
             assistant_response = response['output']['text']
-            source_attributions = ""
-            if 'citations' in response and response['citations']:
-                source_attributions = "<div class='source-attributions'>\n\n**Sources:**\n"
-                for citation in response['citations']:
-                    if 'retrievedReferences' in citation:
-                        for ref in citation['retrievedReferences']:
-                            if 'location' in ref and 'uri' in ref['location']:
-                                file_name = ref['location']['uri'].split('/')[-1]
-                                source_attributions += f"- [{file_name}]({ref['location']['uri']})\n"
-                            elif 'content' in ref and 'text' in ref['content']:
-                                snippet = ref['content']['text'][:150] + "..." if len(ref['content']['text']) > 150 else ref['content']['text']
-                                source_attributions += f"- Content snippet: \"{snippet}\"\n"
-                source_attributions += "</div>"
-            full_response = assistant_response + source_attributions
-
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            st.session_state.messages.append({"role": "assistant", "content": assistant_response})
 
         except Exception as e:
             error_message = f"I apologize, an error occurred while processing your request: {e}. Please try again."
