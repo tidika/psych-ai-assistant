@@ -1,0 +1,5 @@
+region = "us-east-1"
+account_id = "930627915954"
+bucket_name = "psych-ai-assistant-bucket"
+secret_arn = "arn:aws:secretsmanager:us-east-1:930627915954:secret:tochi/bedrock/pinecone-fZICHq"
+pinecone_host = "https://sg-tochi-bedrock-pinecone-3ispgfz.svc.aped-4627-b74a.pinecone.io"

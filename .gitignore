@@ -12,3 +12,4 @@ frontend/psychiatric_sop_assistant.py
 datasets/
 ui_design.png
 styled.xlsx
+iac_backup/
