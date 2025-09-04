@@ -15,16 +15,16 @@ if not AWS_REGION:
 if not BEDROCK_KNOWLEDGE_BASE_ID:
     st.error("BEDROCK_KNOWLEDGE_BASE_ID is not set. Please configure it.")
     st.stop()
-if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY:
-    st.warning("AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY are not set. For Streamlit Community Cloud, these are usually required for Bedrock access. For AWS-native deployments (e.g., App Runner), consider using IAM roles instead.")
+# if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY:
+#     st.warning("AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY are not set. For Streamlit Community Cloud, these are usually required for Bedrock access. For AWS-native deployments (e.g., App Runner), consider using IAM roles instead.")
 
 try:
     if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
         bedrock_agent_runtime = boto3.client(
             service_name='bedrock-agent-runtime',
-            region_name=AWS_REGION
-            # aws_access_key_id=AWS_ACCESS_KEY_ID,
-            # aws_secret_access_key=AWS_SECRET_ACCESS_KEY
+            region_name=AWS_REGION,
+            aws_access_key_id=AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY
         )
     else:
         bedrock_agent_runtime = boto3.client(
