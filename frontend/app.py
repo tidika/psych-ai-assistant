@@ -1,5 +1,6 @@
-import streamlit as st
+import os
 import boto3
+import streamlit as st
 from langchain_aws import ChatBedrock
 from langchain_community.retrievers import AmazonKnowledgeBasesRetriever
 from langchain.prompts import PromptTemplate
@@ -24,6 +25,11 @@ def initialize_resources():
     """Initializes and caches the Bedrock clients and LangChain components."""
     try:
         if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
+            # Set environment variables for authentication for both boto3 and LangChain
+            os.environ["AWS_ACCESS_KEY_ID"] = AWS_ACCESS_KEY_ID
+            os.environ["AWS_SECRET_ACCESS_KEY"] = AWS_SECRET_ACCESS_KEY
+            os.environ["AWS_DEFAULT_REGION"] = AWS_REGION
+
             bedrock_client = boto3.client(
                 service_name="bedrock-runtime",
                 region_name=AWS_REGION,
