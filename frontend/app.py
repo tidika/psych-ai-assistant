@@ -1,5 +1,10 @@
 import streamlit as st
 import boto3
+from langchain_aws import ChatBedrock
+from langchain_community.retrievers import AmazonKnowledgeBasesRetriever
+from langchain.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough, RunnableParallel
 
 
 # --- Configuration ---
@@ -8,30 +13,102 @@ BEDROCK_KNOWLEDGE_BASE_ID = st.secrets.get("BEDROCK_KNOWLEDGE_BASE_ID")
 AWS_ACCESS_KEY_ID = st.secrets.get("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = st.secrets.get("AWS_SECRET_ACCESS_KEY")
 
-if not AWS_REGION:
-    st.error("AWS_REGION is not set. Please configure it.")
-    st.stop()
-if not BEDROCK_KNOWLEDGE_BASE_ID:
-    st.error("BEDROCK_KNOWLEDGE_BASE_ID is not set. Please configure it.")
+if not AWS_REGION or not BEDROCK_KNOWLEDGE_BASE_ID:
+    st.error("AWS_REGION or BEDROCK_KNOWLEDGE_BASE_ID is not set. Please configure it.")
     st.stop()
 
-# --- Initialize Bedrock Client ---
-try:
-    if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
-        bedrock_agent_runtime = boto3.client(
-            service_name='bedrock-agent-runtime',
-            region_name=AWS_REGION,
-            aws_access_key_id=AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=AWS_SECRET_ACCESS_KEY
+
+# --- Initialize Clients and Chains ---
+@st.cache_resource
+def initialize_resources():
+    """Initializes and caches the Bedrock clients and LangChain components."""
+    try:
+        if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
+            bedrock_client = boto3.client(
+                service_name="bedrock-runtime",
+                region_name=AWS_REGION,
+                aws_access_key_id=AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+            )
+        else:
+            bedrock_client = boto3.client(
+                service_name="bedrock-runtime", region_name=AWS_REGION
+            )
+
+        # Initialize LLM and Retriever
+        modelId = "amazon.nova-micro-v1:0"
+        llm = ChatBedrock(model_id=modelId, client=bedrock_client)
+        retriever = AmazonKnowledgeBasesRetriever(
+            knowledge_base_id=BEDROCK_KNOWLEDGE_BASE_ID,
+            retrieval_config={"vectorSearchConfiguration": {"numberOfResults": 3}},
         )
-    else:
-        bedrock_agent_runtime = boto3.client(
-            service_name='bedrock-agent-runtime',
-            region_name=AWS_REGION
+
+        return llm, retriever
+    except Exception as e:
+        st.error(
+            f"Error initializing AWS Bedrock client: {e}. Check IAM role and region."
         )
-except Exception as e:
-    st.error(f"Error initializing AWS Bedrock client: {e}. Check IAM role and region.")
-    st.stop()
+        st.stop()
+
+
+# Define the prompt template
+PROMPT_TEMPLATE = """
+Human: You are an internal AI system that assists with standard operating procedures (SOPs) for opioid treatment in the field of psychiatry. Your answers must be based exclusively on the provided ASAM National Practice Guideline for the Treatment of Opioid Use Disorder documents.
+Use the following pieces of information to provide a concise answer to the question enclosed in <question> tags. 
+If you don't know the answer, just say that you don't know, don't try to make up an answer.
+<context>
+{context}
+</context>
+
+<question>
+{question}
+</question>
+
+The response should be specific and use clinical guidance, statistics, or numbers when possible, as found in the guidelines.
+
+Assistant:"""
+prompt_template = PromptTemplate(
+    template=PROMPT_TEMPLATE, input_variables=["context", "question"]
+)
+
+
+# Define the formatting functions
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+
+
+def format_citations(docs):
+    citations = []
+    unique_sources = set()
+    for doc in docs:
+        source_uri = doc.metadata.get("source_metadata", {}).get(
+            "x-amz-bedrock-kb-source-uri"
+        )
+        page_number = doc.metadata.get("source_metadata", {}).get(
+            "x-amz-bedrock-kb-document-page-number"
+        )
+        if source_uri and page_number:
+            filename = source_uri.split("/")[-1]
+            source_key = f"{filename}-{page_number}"
+            if source_key not in unique_sources:
+                # Use a specific format for each citation entry with correct indentation and newlines
+                citations.append(
+                    f"**Reference {len(unique_sources) + 1}:**"
+                    f"  \n**Source Document:** {filename}"
+                    f"  \n**Page Number:** {page_number}"
+                )
+                unique_sources.add(source_key)
+
+    if not citations:
+        return "No specific citations found."
+
+    # Join the formatted citation entries with a double newline for a blank line
+    # between each reference.
+    formatted_citations = "\n\n".join(citations)
+
+    # Return the full string with the header as a bolded, normal-sized line
+    return f"\n\n**----------------------------------Retrieved References------------------------------**\n\n{formatted_citations}\n"
+
 
 # --- Session State Management ---
 if "start_chat" not in st.session_state:
@@ -39,15 +116,14 @@ if "start_chat" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# --- Page Configuration ---
+# --- Streamlit App ---
 st.set_page_config(
     page_title="Psychiatry Opioid SOPs Assistant 🧠",
     page_icon="📚",
     layout="centered",
-    initial_sidebar_state="auto"
+    initial_sidebar_state="auto",
 )
 
-# --- UI Elements ---
 st.title("Psychiatry Opioid SOPs Assistant")
 st.markdown("---")
 st.write(
@@ -59,7 +135,7 @@ st.write(
 )
 st.markdown("---")
 
-# --- Example Questions ---
+# Example Questions
 st.markdown("##### Example Questions:")
 st.info(
     """
@@ -73,76 +149,66 @@ st.markdown("---")
 # Start/Exit Chat Buttons
 if st.sidebar.button("Start Chat"):
     st.session_state.start_chat = True
-    st.session_state.messages = [{"role": "assistant", "content": "Please type your question below!"}]
+    st.session_state.messages = [
+        {"role": "assistant", "content": "Please type your question below!"}
+    ]
 
 if st.button("Exit Chat"):
     st.session_state.messages = []
     st.session_state.start_chat = False
 
-# --- Chat Logic ---
+# Chat Logic
 if st.session_state.start_chat:
-    # Display chat messages from history on app rerun
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # Accept user input
     if prompt := st.chat_input("Ask a question about SOPs..."):
-        # Add user message to chat history
         st.session_state.messages.append({"role": "user", "content": prompt})
-        # Display user message in chat message container
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # Process the LLM response
         with st.spinner("Searching SOPs..."):
             try:
-                # Prompt template for Bedrock
-                PROMPT_TEMPLATE = """
-                Human: You are an internal AI system that assists with standard operating procedures (SOPs) for opioid treatment in the field of psychiatry. Your answers must be based exclusively on the provided ASAM National Practice Guideline for the Treatment of Opioid Use Disorder documents.
-                Use the following pieces of information to provide a concise answer to the question enclosed in <question> tags. 
-                If you don't know the answer, just say that you don't know, don't try to make up an answer.
-                <context>
-                $search_results$
-                </context>
+                llm, retriever = initialize_resources()
 
-                <question>
-                $input_text$
-                </question>
-
-                The response should be specific and use clinical guidance, statistics, or numbers when possible, as found in the guidelines.
-
-                Assistant:"""
-                
-                response = bedrock_agent_runtime.retrieve_and_generate(
-                    input={
-                        'text': prompt
-                    },
-                    retrieveAndGenerateConfiguration={
-                        'type': 'KNOWLEDGE_BASE',
-                        'knowledgeBaseConfiguration': {
-                            'knowledgeBaseId': BEDROCK_KNOWLEDGE_BASE_ID,
-                            'retrievalConfiguration': {
-                                'vectorSearchConfiguration': {'numberOfResults': 4}
-                            },
-                            'generationConfiguration': {
-                                'promptTemplate': {
-                                    'textPromptTemplate': PROMPT_TEMPLATE
-                                }
-                            },
-                            'modelArn': f"arn:aws:bedrock:{AWS_REGION}::foundation-model/amazon.nova-micro-v1:0"  
+                # Create the core RAG chain once
+                rag_chain = (
+                    RunnableParallel(
+                        {
+                            "context": retriever | format_docs,
+                            "question": RunnablePassthrough(),
                         }
-                    }
+                    )
+                    | prompt_template
+                    | llm
+                    | StrOutputParser()
                 )
-                assistant_response = response['output']['text']
-                st.session_state.messages.append({"role": "assistant", "content": assistant_response})
-            
+
+                # Get the final answer from the core chain
+                answer = rag_chain.invoke(prompt)
+
+                # Get the retrieved documents for citations (separate call)
+                retrieved_docs = retriever.invoke(prompt)
+
+                # Format the citations
+                formatted_citations = format_citations(retrieved_docs)
+
+                # Combine the answer and citations into a single markdown string
+                assistant_response = answer + formatted_citations
+
+                # Append the combined string to the chat messages
+                st.session_state.messages.append(
+                    {"role": "assistant", "content": assistant_response}
+                )
+
             except Exception as e:
                 error_message = f"I apologize, an error occurred while processing your request: {e}. Please try again."
                 st.error(error_message)
-                st.session_state.messages.append({"role": "assistant", "content": error_message})
-        
-        # Display assistant response in chat message container
+                st.session_state.messages.append(
+                    {"role": "assistant", "content": error_message}
+                )
+
         with st.chat_message("assistant"):
             st.markdown(st.session_state.messages[-1]["content"])
 
