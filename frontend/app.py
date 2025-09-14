@@ -36,10 +36,22 @@ def initialize_resources():
                 aws_access_key_id=AWS_ACCESS_KEY_ID,
                 aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
             )
+                 # Client for retrieving information from knowledge bases (used by the retriever)
+            bedrock_agent_runtime_client = boto3.client(
+            service_name="bedrock-agent-runtime",
+            region_name=AWS_REGION,
+        )
+
         else:
             bedrock_client = boto3.client(
                 service_name="bedrock-runtime", region_name=AWS_REGION
             )
+            # Client for retrieving information from knowledge bases (used by the retriever)
+            bedrock_agent_runtime_client = boto3.client(
+            service_name="bedrock-agent-runtime",
+            region_name=AWS_REGION,
+        )
+
 
         # Initialize LLM and Retriever
         modelId = "amazon.nova-micro-v1:0"
@@ -47,6 +59,7 @@ def initialize_resources():
         retriever = AmazonKnowledgeBasesRetriever(
             knowledge_base_id=BEDROCK_KNOWLEDGE_BASE_ID,
             retrieval_config={"vectorSearchConfiguration": {"numberOfResults": 3}},
+            client=bedrock_agent_runtime_client,
         )
 
         return llm, retriever
