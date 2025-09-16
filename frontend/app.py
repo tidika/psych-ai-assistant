@@ -24,6 +24,9 @@ if not AWS_REGION or not BEDROCK_KNOWLEDGE_BASE_ID:
 def initialize_resources():
     """Initializes and caches the Bedrock clients and LangChain components."""
     try:
+        # Define the custom endpoint URL
+        custom_endpoint_url = "https://bedrock.mountpointe.com"
+
         if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
             # Set environment variables for authentication for both boto3 and LangChain
             os.environ["AWS_ACCESS_KEY_ID"] = AWS_ACCESS_KEY_ID
@@ -50,6 +53,7 @@ def initialize_resources():
             bedrock_agent_runtime_client = boto3.client(
             service_name="bedrock-agent-runtime",
             region_name=AWS_REGION,
+            endpoint_url=custom_endpoint_url,
         )
 
 
