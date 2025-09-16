@@ -54,6 +54,7 @@ def initialize_resources():
             service_name="bedrock-agent-runtime",
             region_name=AWS_REGION,
             endpoint_url=custom_endpoint_url,
+            verify=False,
         )
 
 
@@ -64,6 +65,8 @@ def initialize_resources():
             knowledge_base_id=BEDROCK_KNOWLEDGE_BASE_ID,
             retrieval_config={"vectorSearchConfiguration": {"numberOfResults": 3}},
             client=bedrock_agent_runtime_client,
+            endpoint_url=custom_endpoint_url,
+            verify=False,
         )
 
         return llm, retriever
