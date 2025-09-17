@@ -6,7 +6,8 @@ from langchain_community.retrievers import AmazonKnowledgeBasesRetriever
 from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableParallel
-
+import logging
+import botocore
 
 # --- Configuration ---
 AWS_REGION = st.secrets.get("AWS_REGION")
@@ -24,8 +25,6 @@ if not AWS_REGION or not BEDROCK_KNOWLEDGE_BASE_ID:
 def initialize_resources():
     """Initializes and caches the Bedrock clients and LangChain components."""
     try:
-        # Define the custom endpoint URL
-        custom_endpoint_url = "https://bedrock.mountpointe.com"
 
         if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
             # Set environment variables for authentication for both boto3 and LangChain
@@ -46,6 +45,10 @@ def initialize_resources():
         )
 
         else:
+            # Define the custom endpoint URLs
+            bedrock_runtime_endpoint = "https://bedrock.mountpointe.com"
+            bedrock_agent_endpoint = "https://bedrockagent.mountpointe.com"
+
             bedrock_client = boto3.client(
                 service_name="bedrock-runtime", region_name=AWS_REGION
             )
@@ -53,10 +56,9 @@ def initialize_resources():
             bedrock_agent_runtime_client = boto3.client(
             service_name="bedrock-agent-runtime",
             region_name=AWS_REGION,
-            endpoint_url=custom_endpoint_url,
+            endpoint_url=bedrock_runtime_endpoint,
             verify=False,
         )
-
 
         # Initialize LLM and Retriever
         modelId = "amazon.nova-micro-v1:0"
@@ -65,7 +67,7 @@ def initialize_resources():
             knowledge_base_id=BEDROCK_KNOWLEDGE_BASE_ID,
             retrieval_config={"vectorSearchConfiguration": {"numberOfResults": 3}},
             client=bedrock_agent_runtime_client,
-            endpoint_url=custom_endpoint_url,
+            endpoint_url=bedrock_agent_endpoint,
             verify=False,
         )
 
