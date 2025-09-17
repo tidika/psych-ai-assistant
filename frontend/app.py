@@ -50,13 +50,16 @@ def initialize_resources():
             bedrock_agent_endpoint = "https://bedrockagent.mountpointe.com"
 
             bedrock_client = boto3.client(
-                service_name="bedrock-runtime", region_name=AWS_REGION
+                service_name="bedrock-runtime", 
+                region_name=AWS_REGION,
+                endpoint_url=bedrock_runtime_endpoint,
+                verify=False,
             )
             # Client for retrieving information from knowledge bases (used by the retriever)
             bedrock_agent_runtime_client = boto3.client(
             service_name="bedrock-agent-runtime",
             region_name=AWS_REGION,
-            endpoint_url=bedrock_runtime_endpoint,
+            endpoint_url=bedrock_agent_endpoint,
             verify=False,
         )
 
@@ -67,8 +70,6 @@ def initialize_resources():
             knowledge_base_id=BEDROCK_KNOWLEDGE_BASE_ID,
             retrieval_config={"vectorSearchConfiguration": {"numberOfResults": 3}},
             client=bedrock_agent_runtime_client,
-            endpoint_url=bedrock_agent_endpoint,
-            verify=False,
         )
 
         return llm, retriever
