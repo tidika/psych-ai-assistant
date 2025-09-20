@@ -24,33 +24,39 @@ if not AWS_REGION or not BEDROCK_KNOWLEDGE_BASE_ID:
 def initialize_resources():
     """Initializes and caches the Bedrock clients and LangChain components."""
     try:
-        if os.environ.get("AWS_ACCESS_KEY_ID") and os.environ.get("AWS_SECRET_ACCESS_KEY"):
-            # Use environment variables and custom endpoint URLs
+        if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
+            # Set environment variables for authentication for both boto3 and LangChain
+            os.environ["AWS_ACCESS_KEY_ID"] = AWS_ACCESS_KEY_ID
+            os.environ["AWS_SECRET_ACCESS_KEY"] = AWS_SECRET_ACCESS_KEY
+            os.environ["AWS_DEFAULT_REGION"] = AWS_REGION
+
             bedrock_client = boto3.client(
                 service_name="bedrock-runtime",
-                region_name=os.environ.get("AWS_REGION"),
+                region_name=AWS_REGION,
+                aws_access_key_id=AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
             )
-
+            # Client for retrieving information from knowledge bases (used by the retriever)
             bedrock_agent_runtime_client = boto3.client(
                 service_name="bedrock-agent-runtime",
-                region_name=os.environ.get("AWS_REGION"),
+                region_name=AWS_REGION,
             )
         else:
             # When using the IAM role, you still need the custom endpoint URL
             bedrock_client = boto3.client(
-                service_name="bedrock-runtime",
-                region_name=os.environ.get("AWS_REGION"),
+                service_name="bedrock-runtime", region_name=AWS_REGION
             )
+            # Client for retrieving information from knowledge bases (used by the retriever)
             bedrock_agent_runtime_client = boto3.client(
                 service_name="bedrock-agent-runtime",
-                region_name=os.environ.get("AWS_REGION"),
+                region_name=AWS_REGION,
             )
 
         # Initialize LLM and Retriever
         modelId = "amazon.nova-micro-v1:0"
         llm = ChatBedrock(model_id=modelId, client=bedrock_client)
         retriever = AmazonKnowledgeBasesRetriever(
-            knowledge_base_id=os.environ.get("BEDROCK_KNOWLEDGE_BASE_ID"),
+            knowledge_base_id=BEDROCK_KNOWLEDGE_BASE_ID,
             retrieval_config={"vectorSearchConfiguration": {"numberOfResults": 3}},
             client=bedrock_agent_runtime_client,
         )
@@ -62,7 +68,7 @@ def initialize_resources():
             f"Error initializing AWS Bedrock client: {e}. Check IAM role and region."
         )
         st.stop()
-        
+
 
 # Define the prompt template
 PROMPT_TEMPLATE = """
