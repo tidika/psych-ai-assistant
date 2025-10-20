@@ -18,3 +18,5 @@ iac_backup/
 iac/
 linux_commands.txt
 rag_prompt_analysis.ipynb
+.github/
+.devcontainer/
