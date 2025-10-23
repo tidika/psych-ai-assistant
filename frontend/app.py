@@ -2,10 +2,14 @@ import os
 import boto3
 import streamlit as st
 from langchain_aws import ChatBedrock
-from langchain_community.retrievers import AmazonKnowledgeBasesRetriever
+
+# from langchain_community.retrievers import AmazonKnowledgeBasesRetriever
+from langchain_aws.retrievers import AmazonKnowledgeBasesRetriever
 from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough, RunnableParallel
+from langchain.chains import RetrievalQA
+from langchain.callbacks.base import BaseCallbackHandler
 
 
 # --- Configuration ---
@@ -20,7 +24,7 @@ if not AWS_REGION or not BEDROCK_KNOWLEDGE_BASE_ID:
 
 
 # --- Initialize Clients and Chains ---
-@st.cache_resource
+# @st.cache_resource
 def initialize_resources():
     """Initializes and caches the Bedrock clients and LangChain components."""
     try:
@@ -54,14 +58,23 @@ def initialize_resources():
 
         # Initialize LLM and Retriever
         modelId = "amazon.nova-micro-v1:0"
-        llm = ChatBedrock(model_id=modelId, client=bedrock_client)
+        guardrail_id = "9fs09x4n476r"
+        guardrail_version = "DRAFT"
+        llm_with_guardrails = ChatBedrock(
+            model_id=modelId,
+            client=bedrock_client,
+            guardrails={
+                "guardrailIdentifier": guardrail_id,
+                "guardrailVersion": guardrail_version,
+            },
+        )
+
         retriever = AmazonKnowledgeBasesRetriever(
             knowledge_base_id=BEDROCK_KNOWLEDGE_BASE_ID,
             retrieval_config={"vectorSearchConfiguration": {"numberOfResults": 3}},
             client=bedrock_agent_runtime_client,
         )
-
-        return llm, retriever
+        return llm_with_guardrails, retriever
 
     except Exception as e:
         st.error(
@@ -189,29 +202,37 @@ if st.session_state.start_chat:
 
         with st.spinner("Searching SOPs..."):
             try:
-                llm, retriever = initialize_resources()
+                llm_with_guardrails, retriever = initialize_resources()
 
-                # Create the core RAG chain once
-                rag_chain = (
-                    RunnableParallel(
-                        {
-                            "context": retriever | format_docs,
-                            "question": RunnablePassthrough(),
-                        }
-                    )
-                    | prompt_template
-                    | llm
-                    | StrOutputParser()
+                chain = RetrievalQA.from_chain_type(
+                    llm=llm_with_guardrails,
+                    chain_type="stuff",
+                    retriever=retriever,
+                    return_source_documents=True,
+                    chain_type_kwargs={"prompt": prompt_template},
                 )
 
                 # Get the final answer from the core chain
-                answer = rag_chain.invoke(prompt)
-
-                # Get the retrieved documents for citations (separate call)
-                retrieved_docs = retriever.invoke(prompt)
+                response = chain.invoke({"query": prompt})
+                answer = response["result"]
+                retrieved_docs = response.get("source_documents", [])
 
                 # Format the citations
-                formatted_citations = format_citations(retrieved_docs)
+                input_block = (
+                    "I am an internal AI assistant for psychiatric group operations. "
+                    "I cannot process requests that fall outside the scope of our ASAM guidelines or involve patient-specific clinical advice or sensitive personal information. "
+                    "Please rephrase your question to be relevant to our internal documents."
+                )
+
+                output_block = (
+                    "My response was filtered because it contained content outside my scope."
+                    " Please ask questions related to our internal SOPs, policies, and guidelines."
+                )
+
+                if answer == input_block or answer == output_block:
+                    formatted_citations = ""
+                else:
+                    formatted_citations = format_citations(retrieved_docs)
 
                 # Combine the answer and citations into a single markdown string
                 assistant_response = answer + formatted_citations
