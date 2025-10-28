@@ -1,4 +1,4 @@
-# Psych-Ai-Assistant
+# Psych-AI-Assistant
 *A secure, compliant Retrieval-Augmented Generation (RAG) solution for psychiatry SOPs built on AWS*
 
 
@@ -40,7 +40,7 @@ This project captures the architectural, operational, and procedural lessons lea
 
 
 ## System Architecture  & Design
-![System Architecture](images/system_architecture.png)
+![System Architecture](/images/system_architecture.png)
 ### High - Level Workflow
 
 *  Document ingestion (psychiatry SOPs) into S3
@@ -59,21 +59,21 @@ This project captures the architectural, operational, and procedural lessons lea
 ## RAG Design
 The Retrieval-Augmented Generation (RAG) pipeline is designed to securely process, embed, and retrieve psychiatry SOP documents within a HIPAA-compliant AWS environment.
 
-![RAG Architecture](images/rag_architecture.png)
+![RAG Architecture](/images/rag_architecture.png)
 
 Workflow Overview
 
-1. Document Ingestion: Clinicians or administrators upload SOP documents to a secure Amazon S3 bucket.
+1. **Document Ingestion:** Clinicians or administrators upload SOP documents to a secure Amazon S3 bucket.
 This upload triggers an AWS Lambda function, which retrieves the new data and processes it for indexing.
 
-2. Embedding Generation: he Lambda function invokes a custom Python script that parses and chunks the document text, generating vector embeddings using a Bedrock embedding model.
+2. **Embedding Generation:** he Lambda function invokes a custom Python script that parses and chunks the document text, generating vector embeddings using a Bedrock embedding model.
 These embeddings are stored in a Pinecone vector database for efficient similarity search.
 
-3. Knowledge Base Sync: Processed data are synchronized with a Bedrock Knowledge Base, allowing seamless retrieval of relevant context during inference.
+3. **Knowledge Base Sync:** Processed data are synchronized with a Bedrock Knowledge Base, allowing seamless retrieval of relevant context during inference.
 
-4. User Query & Retrieval: When a user submits a query through the front-end, the backend—running on an EC2 instance with LangChain—queries Pinecone for the most relevant document chunks.
+4. **User Query & Retrieval:** When a user submits a query through the front-end, the backend—running on an EC2 instance with LangChain—queries Pinecone for the most relevant document chunks.
 
-5. Response Generation: The retrieved chunks, along with the user query, are passed to an LLM (Nova Micro) hosted on Amazon Bedrock.The model then generates a context-aware, coherent response, which is returned to the user.
+5. **Response Generation:** The retrieved chunks, along with the user query, are passed to an LLM (Nova Micro) hosted on Amazon Bedrock.The model then generates a context-aware, coherent response, which is returned to the user.
 
 ## Working App. 
 
