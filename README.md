@@ -33,7 +33,7 @@ This project captures the architectural, operational, and procedural lessons lea
 
 * **Fine-grained access control:** Authentication via AWS Cognito, IAM roles enforcing least-privilege access.
 
-* **PII/PHI guardrails:**  Pre-embedding redaction of sensitive identifiers; filtering model outputs to avoid exposure of patient information.
+* **Guardrails:**  Pre-embedding redaction of sensitive identifiers, filtering of model outputs to prevent exposure of patient information, and restriction of queries to the Psychiatry SOP domain.
 
 * **Retrieval-Augmented Generation workflow:** Documents → embeddings → vector store → LLM (via AWS Bedrock) → clinically-oriented answer generation.
 
@@ -43,9 +43,9 @@ This project captures the architectural, operational, and procedural lessons lea
 ![System Architecture](/images/system_architecture.png)
 ### High - Level Workflow
 
-*  Document ingestion (psychiatry SOPs) into S3
+* Evaluation of the RAG system and LLM model to verify proper functionality. 
 
-*  Redaction of PII/PHI during preprocessing
+* Document ingestion (psychiatry SOPs) into S3
 
 * Embedding generation and storage in vector database (e.g., Pinecone via PrivateLink)
 
@@ -66,7 +66,7 @@ Workflow Overview
 1. **Document Ingestion:** Clinicians or administrators upload SOP documents to a secure Amazon S3 bucket.
 This upload triggers an AWS Lambda function, which retrieves the new data and processes it for indexing.
 
-2. **Embedding Generation:** he Lambda function invokes a custom Python script that parses and chunks the document text, generating vector embeddings using a Bedrock embedding model.
+2. **Embedding Generation:** The Lambda function invokes a custom Python script that parses and chunks the document text, generating vector embeddings using a Bedrock embedding model.
 These embeddings are stored in a Pinecone vector database for efficient similarity search.
 
 3. **Knowledge Base Sync:** Processed data are synchronized with a Bedrock Knowledge Base, allowing seamless retrieval of relevant context during inference.
@@ -87,6 +87,7 @@ These embeddings are stored in a Pinecone vector database for efficient similari
 
 ## Working App. 
 ![APP Image](/images/app_image.png)
+The image above shows the working application running on an EC2 instance located in the private subnet of the VPC.
 
 #### Access a version of this app deployed on streamlit cloud. 
 - [Psych AI Assistant](https://psych-opioid-sop-ai-assistant.streamlit.app/) 
