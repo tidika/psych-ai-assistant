@@ -23,7 +23,7 @@ cat <<'EOM' > /home/ec2-user/.streamlit/secrets.toml
 # .streamlit/secrets.toml
 # AWS Configuration
 AWS_REGION = "us-east-1"
-BEDROCK_KNOWLEDGE_BASE_ID = "SK5WRI3ZBN"
+BEDROCK_KNOWLEDGE_BASE_ID = "KXI93EOMDV"
 EOM
 
 # Run the Streamlit application

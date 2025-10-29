@@ -75,5 +75,18 @@ These embeddings are stored in a Pinecone vector database for efficient similari
 
 5. **Response Generation:** The retrieved chunks, along with the user query, are passed to an LLM (Nova Micro) hosted on Amazon Bedrock.The model then generates a context-aware, coherent response, which is returned to the user.
 
-## Working App. 
 
+## Repository Structure
+- [frontend/](/frontend)                   #Contains the Streamlit app code and its dependencies 
+- [images/](/images)                   #Architecture diagrams 
+- [iac/](/iac)    # Terraform scripts for deploying the Streamlit app and Bedrock knowledge base 
+- [rag_evaluation.ipynb](/rag_evaluation.ipynb)    #Notebook for evaluating RAG and LLM model performance  
+- [rag_guardrails.ipynb](/rag_guardrails.ipynb)      #Notebook for implementing and testing RAG guardrails
+
+
+
+## Working App. 
+![APP Image](/images/app_image.png)
+
+#### Access a version of this app deployed on streamlit cloud. 
+- [Psych AI Assistant](https://psych-opioid-sop-ai-assistant.streamlit.app/) 

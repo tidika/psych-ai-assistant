@@ -1,3 +1,6 @@
+# -----------------------------------------------------------------------------
+# Bedrock Knowledgebase
+# -----------------------------------------------------------------------------
 #resource that creates the knowledgebase
 resource "aws_bedrockagent_knowledge_base" "chatbot" {
   name     = "psych-opioid-ai-assistant-knowledge-base"
@@ -30,6 +33,9 @@ resource "aws_bedrockagent_knowledge_base" "chatbot" {
   }
 }
 
+# -----------------------------------------------------------------------------
+# Bedrock S3 Datasource
+# -----------------------------------------------------------------------------
 #resource for creating an s3 data source
 resource "aws_bedrockagent_data_source" "s3_data_source" {
   name               = "knowledge-base-SOP-s3"
@@ -69,7 +75,8 @@ resource "aws_lambda_function" "ingestion_scheduler" {
   environment {
     variables = {
       KNOWLEDGE_BASE_ID = aws_bedrockagent_knowledge_base.chatbot.id
-      DATA_SOURCE_ID    = aws_bedrockagent_data_source.s3_data_source.id
+      DATA_SOURCE_ID    = (split(",", aws_bedrockagent_data_source.s3_data_source.id))[0]
+      aws_region =data.aws_region.current.name
     }
   }
 
@@ -77,4 +84,16 @@ resource "aws_lambda_function" "ingestion_scheduler" {
     aws_iam_role_policy_attachment.lambda_basic_execution,
     aws_iam_role_policy_attachment.bedrock_full_access,
   ]
+}
+
+
+resource "aws_lambda_permission" "allow_s3_to_invoke_lambda" {
+  statement_id  = "AllowS3Invoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.ingestion_scheduler.function_name # Reference your Lambda function
+  principal     = "s3.amazonaws.com"
+  source_arn    = "arn:aws:s3:::psych-ai-assistant-bucket" # Reference your S3 bucket
+
+  # Optional, but good practice for security:
+  source_account = data.aws_caller_identity.current.account_id
 }

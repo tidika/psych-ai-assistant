@@ -6,7 +6,7 @@ def lambda_handler(event, context):
     knowledge_base_id = os.environ['KNOWLEDGE_BASE_ID']
     data_source_id = os.environ['DATA_SOURCE_ID']
 
-    bedrock_agent_client = boto3.client('bedrock-agent', region_name=os.environ['AWS_REGION'])
+    bedrock_agent_client = boto3.client('bedrock-agent', region_name=os.environ['aws_region'])
 
     try:
         # Start the ingestion job
